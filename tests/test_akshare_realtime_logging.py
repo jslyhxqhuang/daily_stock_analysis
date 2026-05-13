@@ -177,6 +177,49 @@ def test_hot_stocks_uses_eastmoney_hot_ranking_when_available(monkeypatch, aksha
     assert result[0]["name"] == "中国长城"
 
 
+def test_hot_stocks_falls_back_to_xueqiu_when_primary_sources_empty(monkeypatch, akshare_fetcher):
+    call_order = []
+
+    def _eastmoney(_ak, _n):
+        call_order.append("eastmoney_hot")
+        return None
+
+    def _up(_ak, _n):
+        call_order.append("eastmoney_hot_up")
+        return []
+
+    def _xueqiu(_ak, _n):
+        call_order.append("xueqiu")
+        return [
+            {
+                "rank": 1,
+                "code": "SH600004",
+                "name": "华夏银行",
+                "price": 7.21,
+                "change_pct": None,
+                "source": "雪球关注榜",
+            }
+        ]
+
+    monkeypatch.setattr(akshare_fetcher, "_get_eastmoney_hot_stocks", _eastmoney)
+    monkeypatch.setattr(akshare_fetcher, "_get_eastmoney_hot_up_stocks", _up)
+    monkeypatch.setattr(akshare_fetcher, "_get_xueqiu_hot_stocks", _xueqiu)
+
+    result = akshare_fetcher.get_hot_stocks(5)
+
+    assert call_order == ["eastmoney_hot", "eastmoney_hot_up", "xueqiu"]
+    assert result == [
+        {
+            "rank": 1,
+            "code": "SH600004",
+            "name": "华夏银行",
+            "price": 7.21,
+            "change_pct": None,
+            "source": "雪球关注榜",
+        }
+    ]
+
+
 def test_limit_up_pool_zero_pads_first_seal_times_before_sorting(monkeypatch, akshare_fetcher):
     df = pd.DataFrame(
         [
